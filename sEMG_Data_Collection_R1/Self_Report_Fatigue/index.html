@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <title>Fatigue Self-Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:20px; text-align:center; }
+    #container { max-width:500px; margin:0 auto; }
+    h1 { font-size:1.6rem; margin-bottom:8px; }
+    #participantRow { margin: 12px 0; }
+    input[type="text"] { font-size:1rem; padding:8px; width:70%; }
+    button.big { font-size:1.25rem; padding:16px 24px; margin:10px; width:85%; display:block; }
+    #promptModal {
+      position:fixed; left:0; right:0; top:0; bottom:0;
+      background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center;
+    }
+    #promptInner {
+      background:white; padding:20px; border-radius:8px; width:90%; max-width:420px;
+    }
+    #status { margin-top:12px; color:green; font-size:0.95rem; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>Fatigue Self-Report</h1>
+    <p>Tap <strong>Start</strong>, then respond when prompted every <span id="intervalLabel">5</span> minutes.</p>
+
+    <div id="participantRow">
+      <input id="participantId" placeholder="Participant ID (optional)" />
+      <button id="startBtn" class="big">Start Session</button>
+    </div>
+
+    <p id="status"></p>
+  </div>
+
+  <!-- Prompt Modal -->
+  <div id="promptModal">
+    <div id="promptInner">
+      <h2>Are you feeling fatigued?</h2>
+      <button onclick="respondAndClose('Not Fatigued')" class="big">No</button>
+      <button onclick="respondAndClose('Fatigued')" class="big" style="background:#f2b0b0">Yes</button>
+      <p style="font-size:0.9rem; margin-top:8px">You have <span id="respTimer">10</span>s to respond</p>
+    </div>
+  </div>
+
+<script>
+  // CONFIG
+  const INTERVAL_MINUTES = 5;  
+  const RESPONSE_WINDOW_SEC = 10;
+
+  // state
+  let promptTimer = null;
+  let respCountdownTimer = null;
+  let participantId = '';
+  let pendingQueue = []; // offline queue
+
+  // On page load: try to flush any queued events
+  window.addEventListener('load', () => {
+    loadQueue();
+    flushQueueIfAny();
+  });
+
+  // Start button: requires user gesture to enable audio in some browsers
+  document.getElementById('startBtn').addEventListener('click', () => {
+    participantId = document.getElementById('participantId').value.trim();
+    // start first prompt immediately for quick feedback, then every INTERVAL_MINUTES
+    schedulePrompt(0);
+    schedulePrompt(INTERVAL_MINUTES * 60 * 1000);
+    setInterval(() => schedulePrompt(0), INTERVAL_MINUTES * 60 * 1000);
+    document.getElementById('status').innerText = 'Session started. Waiting for prompts...';
+    document.getElementById('startBtn').disabled = true;
+  });
+
+  function schedulePrompt(delayMs) {
+    setTimeout(() => {
+      showPromptModal();
+      playBeep();
+      startRespCountdown(RESPONSE_WINDOW_SEC);
+    }, delayMs);
+  }
+
+  function showPromptModal() {
+    document.getElementById('promptModal').style.display = 'flex';
+  }
+  function hidePromptModal() {
+    document.getElementById('promptModal').style.display = 'none';
+  }
+
+  function respondAndClose(responseLabel) {
+    manualLog(responseLabel);
+    hidePromptModal();
+    stopRespCountdown();
+  }
+
+  // manual log for the on-screen big buttons
+  function manualLog(responseLabel) {
+    const clientTs = new Date().toISOString();
+    // call server function
+    if (navigator.onLine) {
+      // use google.script.run
+      google.script.run.withSuccessHandler(() => {
+        document.getElementById('status').innerText = `Logged: ${responseLabel} (${clientTs})`;
+      }).withFailureHandler(err => {
+        // if server fails, queue locally
+        queueEntry(responseLabel, clientTs);
+        document.getElementById('status').innerText = `Saved offline (will sync): ${responseLabel}`;
+      }).logFatigue(responseLabel, participantId, clientTs);
+    } else {
+      queueEntry(responseLabel, clientTs);
+      document.getElementById('status').innerText = `Offline — saved locally: ${responseLabel}`;
+    }
+  }
+
+  // beep using WebAudio
+  function playBeep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.value = 0.05; // low volume
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      setTimeout(()=>{ o.stop(); ctx.close(); }, 300);
+    } catch (e) {
+      // ignore audio errors
+    }
+  }
+
+  // response countdown UI
+  function startRespCountdown(seconds) {
+    let sec = seconds;
+    const el = document.getElementById('respTimer');
+    el.innerText = sec;
+    respCountdownTimer = setInterval(() => {
+      sec--;
+      el.innerText = sec;
+      if (sec <= 0) {
+        clearInterval(respCountdownTimer);
+        // no response -> mark as Not Fatigued automatically
+        respondAndClose('Not Fatigued');
+      }
+    }, 1000);
+  }
+  function stopRespCountdown() {
+    if (respCountdownTimer) { clearInterval(respCountdownTimer); respCountdownTimer = null; }
+  }
+
+  // Offline queue helpers - simple localStorage queue
+  function queueEntry(responseLabel, clientTs) {
+    const q = JSON.parse(localStorage.getItem('fatigueQueue') || '[]');
+    q.push({ response: responseLabel, ts: clientTs, pid: participantId || '' });
+    localStorage.setItem('fatigueQueue', JSON.stringify(q));
+  }
+  function loadQueue() {
+    pendingQueue = JSON.parse(localStorage.getItem('fatigueQueue') || '[]');
+  }
+  function flushQueueIfAny() {
+    loadQueue();
+    if (!navigator.onLine || pendingQueue.length === 0) return;
+    // attempt to send all
+    const copy = pendingQueue.slice();
+    let succeeded = [];
+    copy.forEach((entry, idx) => {
+      google.script.run.withSuccessHandler(() => {
+        succeeded.push(idx);
+        // remove succeeded entries after all attempts
+        const updated = JSON.parse(localStorage.getItem('fatigueQueue') || '[]');
+        // remove the first matching element
+        const removeIndex = updated.findIndex(e => e.ts === entry.ts && e.response === entry.response);
+        if (removeIndex !== -1) {
+          updated.splice(removeIndex, 1);
+          localStorage.setItem('fatigueQueue', JSON.stringify(updated));
+        }
+      }).withFailureHandler(err => {
+        // keep in queue
+      }).logFatigue(entry.response, entry.pid, entry.ts);
+    });
+  }
+
+  // attempt to flush when regaining network
+  window.addEventListener('online', () => {
+    document.getElementById('status').innerText = 'Online again — syncing...';
+    flushQueueIfAny();
+  });
+</script>
+</body>
+</html>
