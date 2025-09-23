@@ -22,6 +22,6 @@ class Coach:
             if self.current_command < Command.SPEED_UP:
                 self.current_command = Command.SPEED_UP
         else:  # Fatigue detected
-            if self.current_command < Command.RECOVER:
+            if self.current_command < Command.RECOVER: 
                 self.current_command = Command(self.current_command + 1)
         return self.current_command
