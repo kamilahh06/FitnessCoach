@@ -1,15 +1,18 @@
 #include <SPI.h>
 
 int CS_PIN = 5;
+unsigned long lastMicros = 0;
+const unsigned long sampleInterval = 5000;
 
 int readADC(int channel) {
-  byte command = 0b11000000 | (channel << 3);
+  byte command1 = 0b00000001; 
+  byte command2 = 0b1000 << 4 | (channel << 4); 
   digitalWrite(CS_PIN, LOW);
-  byte high = SPI.transfer(command);
-  byte low = SPI.transfer(0x00);
+  SPI.transfer(command1);
+  int high = SPI.transfer(command2) & 0x03; 
+  int low = SPI.transfer(0x00);
   digitalWrite(CS_PIN, HIGH);
-  int value = ((high & 0x0F) << 8) | low;
-  return value;
+  return (high << 8) | low;
 }
 
 void setup() {
@@ -20,9 +23,14 @@ void setup() {
 }
 
 void loop() {
-  int val = readADC(0);
-  Serial.print(millis());
-  Serial.print(",");
-  Serial.println(val);
-  delay(100);
+  unsigned long now = micros();
+  if (now - lastMicros >= sampleInterval) {
+    lastMicros = now;
+
+    int val = readADC(0);          
+    unsigned long t = millis();    
+    Serial.print(t);
+    Serial.print(",");
+    Serial.println(val);
+  }
 }
