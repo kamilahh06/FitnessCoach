@@ -7,7 +7,7 @@ class EMGReader:
     def __init__(self, port, baud=115200):
         self.ser= serial.Serial(port, baud, timeout=1)
     
-    #read one line and return (time_ms, emg_value) as ints
+    # Read one line and return (time_ms, emg_value) as ints
     def read_line(self):
         line = self.ser.readline().decode("utf-8", errors="ignore").strip()
         if line:
@@ -21,7 +21,8 @@ class EMGReader:
                     return None
         return None
     
-    #read a window of emg values of given size
+    
+    # Read a window of emg values of given size
     def read_window(self, window_size=30):
         window = np.array([])
         start_time = time.time()
@@ -31,7 +32,8 @@ class EMGReader:
                 window.append(row[1])
         return window, start_time
     
-    #create a new log file with header
+    
+    # Create a new log file with header
     def create_file(self):
         filename = f"emg_log_{int(time.time())}.csv"
         print(f"Logging to {filename}...")
@@ -39,7 +41,8 @@ class EMGReader:
             f.write("time_ms, emg_value\n")
         return filename
     
-    #create a new log file with header
+    
+    # Create a new log file with header
     def log_to_file(self, filename):
         if not filename:
             filename = self.create_file()
@@ -48,7 +51,7 @@ class EMGReader:
             f.write(f"{row[0]},{row[1]}\n")
          
 
-    #stream everything to a csv file until ctrl+c
+    # Stream everything to a csv file until ctrl+c
     def log_all_to_file(self, filename):
         with open(filename, "w") as f:
             f.write("time_ms, emg_value\n") #header
