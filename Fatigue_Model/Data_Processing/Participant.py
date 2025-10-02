@@ -6,11 +6,12 @@ class Participant:
     Class to process and label participant data based on fatigue levels and performance metrics.
     Attributes:
         participant_id (int): Unique identifier for the participant.
+        data (pd.DataFrame): DataFrame containing the participant's emg data.
+            time_ms, emg_value
+        reported_fatigue (list of int): List of self-reported fatigue scores.
         fatigue_time (float): Self-reported fatigue time
         speed_drop_time (float): Timestamp when speed drop-off occurs.
         stop_time (float): Timestamp when the participant stops.
-        data (pd.DataFrame): DataFrame containing the participant's emg data.
-            time_ms, emg_value
     """
     def __init__(self, participant_id, data, reported_fatigue, start_time, fatigue_time, speed_drop_time, stop_time):
         self.partipant_id = participant_id

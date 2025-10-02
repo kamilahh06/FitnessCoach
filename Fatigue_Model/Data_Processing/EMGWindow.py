@@ -17,7 +17,7 @@ class EMGWindow:
         self.processor = PreProcessor()
         self.participant = participant
         self.curr_self_report_fatigue = self.get_self_report_fatigue(participant)
-        self.features = processor.extract_features(processor.filter(participant.data))
+        self.features = self.processor.extract_features(self.processor.filter(participant.data))
         self.after_self_report_fatigue = window_end >= self.curr_self_report_fatigue
         self.after_fatigue_onset = window_end >= participant.fatigue_time[-1] if participant.fatigue_time else False
         self.label = self.assign_label(self.after_self_report_fatigue, self.after_fatigue_onset)
@@ -48,23 +48,38 @@ class EMGWindow:
         most_relevant_fatigue = max(fatigue_counts, key=fatigue_counts.get)
         return most_relevant_fatigue
 
-    def assign_label(after_self_report_fatigue, after_fatigue_onset):
-        """
-        Label the window based on fatigue levels and performance metrics.
-        Labels:
-            0: Not Fatigued
-            1: Onset of Fatigue
-            2: Fatigued
-        """
-        if not after_self_report_fatigue and not after_fatigue_onset:
-            return 0  # Not Fatigued
-        elif after_self_report_fatigue and not after_fatigue_onset:
-            return 1
-        elif after_fatigue_onset and not after_self_report_fatigue:
-            return 1
+def assign_label(self, participant, window_start, window_end):
+        ratings = participant.reported_fatigue
+        in_window = ratings[
+            (ratings['time_ms'] >= window_start) & (ratings['time_ms'] <= window_end)
+        ]
+
+        if in_window.empty:
+            raw_rating = None
         else:
-            return 2
-        
-        
+            raw_rating = in_window['rating'].mean()  # average if multiple ratings in window
+
+        # Fallback if no self-report
+        if raw_rating is None:
+            if window_end < participant.speed_drop_time:
+                return 1  # default low fatigue
+            elif window_end < participant.stop_time:
+                return 4  # mid fatigue
+            else:
+                return 7  # max fatigue
+
+        # --- Normalize per participant ---
+        # Scale to [1,7] based on min/max ratings they gave
+        min_rating = participant.reported_fatigue['rating'].min()
+        max_rating = participant.reported_fatigue['rating'].max()
+        normalized = 1 + (raw_rating - min_rating) * (6 / (max_rating - min_rating + 1e-8))
+
+        # Clamp based on physiology
+        if window_end < participant.speed_drop_time:
+            normalized = min(normalized, 3)  # pre-fatigue
+        elif window_end > participant.stop_time:
+            normalized = 7  # forced max
+
+        return int(round(normalized))
     
     

@@ -1,27 +1,31 @@
-from emg_reader import EMGReader
-from processing import Processor
-from model_handler import ModelHandler
-from coach import Coach
-from feedback import Feedback
+from EMGReader import EMGReader
+from Fitness_Coach.Coach import Coach
+from FatigueModel import ModelHandler
+from Fatigue_Model.Data_Processing.PreProcessor import PreProcessor
+import os
 
 def main():
+    participant_id = -1 # Participant id for logging results    
+    window_size = 30  # Number of samples per window
+        
+    model_file_path = "Fatigue_Model/Models/best_model.pth"
+    model = ModelHandler(model_file_path)  # Load your trained model here
+    processor = PreProcessor()
+    coach = Coach(participant_id)
+    
     reader = EMGReader()
-    processor = Processor()
-    model = ModelHandler()
-    coach = Coach()
-    feedback = Feedback()
-
+    reader.create_file(participant_id)
+    
     print("🎯 Fitness Coach started. Reading live EMG...")
 
     while True:
-        emg_val = reader.get_data()
-        features = processor.process(emg_val)
+        emg_val = reader.read_window(window_size)
+        features = processor.full_process(emg_val)
 
         if features is not None:
             prediction = model.predict(features)
-            command = coach.give_command(prediction)
-            feedback.give_visual(command)
-            feedback.give_audio(command)
+            coach.give_command(prediction)
+            coach.log()
 
 if __name__ == "__main__":
     main()
