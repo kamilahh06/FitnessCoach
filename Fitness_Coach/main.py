@@ -6,7 +6,7 @@ import os
 
 def main():
     participant_id = -1 # Participant id for logging results    
-    window_size = 30  # Number of samples per window
+    window_size = 2000  # Miliseconds for EMG window
         
     model_file_path = "Fatigue_Model/Models/best_model.pth"
     model = ModelHandler(model_file_path)  # Load your trained model here

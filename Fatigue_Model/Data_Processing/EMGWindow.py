@@ -1,85 +1,61 @@
 from collections import Counter
-from PreProcessor import PreProcessor
-
+# from PreProcessor import PreProcessor
+from .PreProcessor import PreProcessor
+from .Participant import Participant
+import numpy as np
 
 class EMGWindow:
     """
-    Class to represent a window of EMG data and its associated features and label.
-    Attributes:
-        participant (Participant): The participant object containing EMG data and fatigue info.
-        curr_self_report_fatigue (int): The most relevant self-reported fatigue score within the window.
-        features (tuple): Extracted features from the EMG data in the window.
-        after_self_report_fatigue (bool): Whether the window is after the self-reported fatigue time.
-        after_fatigue_onset (bool): Whether the window is after the fatigue onset time.
-        label (int): The assigned label for the window based on fatigue levels and performance metrics.
+    Represents a window of EMG data for a participant, along with extracted features and assigned fatigue label.
     """
     def __init__(self, participant, window_start, window_end):
         self.processor = PreProcessor()
         self.participant = participant
-        self.curr_self_report_fatigue = self.get_self_report_fatigue(participant)
-        self.features = self.processor.extract_features(self.processor.filter(participant.data))
-        self.after_self_report_fatigue = window_end >= self.curr_self_report_fatigue
-        self.after_fatigue_onset = window_end >= participant.fatigue_time[-1] if participant.fatigue_time else False
-        self.label = self.assign_label(self.after_self_report_fatigue, self.after_fatigue_onset)
+        self.window_start = window_start
+        self.window_end = window_end
 
-    def get_self_report_fatigue(participant):
+        self.curr_self_report_fatigue = self.get_self_report_fatigue()
+        self.features = self.processor.extract_features(self.processor.full_process(participant.data))
+        self.label = self.assign_label(participant, window_start, window_end)
+
+    def get_self_report_fatigue(self):
         """
-        Get the most relevant self-reported fatigue score within the window.
-        If no fatigue score is reported in the window, return infinity.
+        Find the most relevant self-reported fatigue score within the window.
         """
-        # Find the self-reported fatigue (participant.reported_fatigue) time between window start and window end
-        reported_fatigue = participant.reported_fatigue
-        if not reported_fatigue:
+        reported_fatigue = self.participant.reported_fatigue
+        # print("Reported Fatigue ------- ", reported_fatigue)
+
+        if reported_fatigue.empty:
             return float('inf')
-        
+
         # Filter fatigue scores within the window
-        fatigue_scores_in_window = [
-            ts for ts in reported_fatigue 
-            if participant.start_time <= ts <= participant.stop_time
+        fatigue_scores_in_window = reported_fatigue[
+            (reported_fatigue['time_ms'] >= self.window_start) & (reported_fatigue['time_ms'] <= self.window_end)
         ]
-        
-        if not fatigue_scores_in_window:
+
+        if fatigue_scores_in_window.empty:
             return float('inf')
-        
-        # Count occurrences of each fatigue score
-        fatigue_counts = Counter(fatigue_scores_in_window)
-        
-        # Return the fatigue score with the highest count
+
+        # Find the most frequent fatigue score in the window
+        fatigue_counts = Counter(fatigue_scores_in_window['response'])
         most_relevant_fatigue = max(fatigue_counts, key=fatigue_counts.get)
         return most_relevant_fatigue
 
-def assign_label(self, participant, window_start, window_end):
-        ratings = participant.reported_fatigue
-        in_window = ratings[
-            (ratings['time_ms'] >= window_start) & (ratings['time_ms'] <= window_end)
-        ]
+    def assign_label(self, participant, window_start, window_end):
+        ratings = participant.reported_fatigue.sort_values('time_ms')
+        # Get all ratings before or within this window
+        prev_ratings = ratings[ratings['time_ms'] <= window_end]
 
-        if in_window.empty:
-            raw_rating = None
-        else:
-            raw_rating = in_window['rating'].mean()  # average if multiple ratings in window
+        if prev_ratings.empty:
+            print(f"⚠️ No fatigue scores yet at window start ({window_start}-{window_end}). Assigning default label.")
+            return 0
 
-        # Fallback if no self-report
-        if raw_rating is None:
-            if window_end < participant.speed_drop_time:
-                return 1  # default low fatigue
-            elif window_end < participant.stop_time:
-                return 4  # mid fatigue
-            else:
-                return 7  # max fatigue
+        # Most recent (last) fatigue value before the window end
+        raw_rating = prev_ratings.iloc[-1]['response']
 
-        # --- Normalize per participant ---
-        # Scale to [1,7] based on min/max ratings they gave
-        min_rating = participant.reported_fatigue['rating'].min()
-        max_rating = participant.reported_fatigue['rating'].max()
-        normalized = 1 + (raw_rating - min_rating) * (6 / (max_rating - min_rating + 1e-8))
-
-        # Clamp based on physiology
-        if window_end < participant.speed_drop_time:
-            normalized = min(normalized, 3)  # pre-fatigue
-        elif window_end > participant.stop_time:
-            normalized = 7  # forced max
-
-        return int(round(normalized))
-    
-    
+        # Optionally normalize if needed
+        # min_rating = ratings['response'].min()
+        # max_rating = ratings['response'].max()
+        # normalized = 1 + (raw_rating - min_rating) * (6 / (max_rating - min_rating + 1e-8))
+        # return int(round(normalized))
+        return raw_rating

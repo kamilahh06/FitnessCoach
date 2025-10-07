@@ -4,6 +4,16 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 class Trainer:
+    """
+    Trainer class for training and evaluating PyTorch models.
+    Args:
+        model: PyTorch model to train.
+        train_dataset: Training dataset (PyTorch Dataset).
+        test_dataset: Testing dataset (PyTorch Dataset).
+        lr: Learning rate for the optimizer.
+        batch_size: Batch size for training and evaluation.
+        device: Device to run the model on ('cuda' or 'cpu'). If None, automatically selects.
+    """
     def __init__(self, model, train_dataset, test_dataset, lr=1e-3, batch_size=32, device=None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
