@@ -6,6 +6,9 @@ import pandas as pd
 import os
 
 class EMGReader:
+    """
+    Reads EMG data from a serial port and logs it to a CSV file.
+    """
     def __init__(self, port, participant_id, baud=115200):
         self.ser= serial.Serial(port, baud, timeout=1)
         self.filename = f"emg_log_{int(time.time())}_{participant_id}.csv"
@@ -25,7 +28,7 @@ class EMGReader:
         return None
     
     # Read a window of emg values of given size
-    def read_window(self, window_size=30):
+    def read_window(self, window_size=2000):
         window = np.array([])
         start_time = time.time()
         while len(window) < window_size:

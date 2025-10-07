@@ -3,6 +3,9 @@ from torch.utils.data import Dataset
 import numpy as np
 
 class TrainingDataset(Dataset):
+    """
+    A PyTorch Dataset class for EMG signal windows.
+    """
     def __init__(self, EMGWindows):
         self.features = []
         self.labels = []
