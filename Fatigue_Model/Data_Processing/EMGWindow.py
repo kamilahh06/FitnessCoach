@@ -1,61 +1,49 @@
-from collections import Counter
-# from PreProcessor import PreProcessor
-from .PreProcessor import PreProcessor
-from .Participant import Participant
 import numpy as np
+import pandas as pd
+from .PreProcessor import PreProcessor
 
 class EMGWindow:
-    """
-    Represents a window of EMG data for a participant, along with extracted features and assigned fatigue label.
-    """
-    def __init__(self, participant, window_start, window_end):
-        self.processor = PreProcessor()
-        self.participant = participant
-        self.window_start = window_start
-        self.window_end = window_end
+    """One window for one trial: processed signal, features, and the average fatigue label within the window."""
+    def __init__(self, trial_dict, t0, t1, fs=1259, normalize_label_to_7=False):
+        self.trial = trial_dict
+        self.t0 = t0
+        self.t1 = t1
+        self.fs = fs
+        self.normalize_label_to_7 = normalize_label_to_7
+        self.processor = PreProcessor(fs=fs)
 
-        self.curr_self_report_fatigue = self.get_self_report_fatigue()
-        self.features = self.processor.extract_features(self.processor.full_process(participant.data))
-        self.label = self.assign_label(participant, window_start, window_end)
+        # Slice raw EMG signal
+        sig = self._slice_emg()
 
-    def get_self_report_fatigue(self):
-        """
-        Find the most relevant self-reported fatigue score within the window.
-        """
-        reported_fatigue = self.participant.reported_fatigue
-        # print("Reported Fatigue ------- ", reported_fatigue)
+        # Preprocess & extract features
+        clean = self.processor.full_process(sig, normalize_mode="zscore")
+        self.features = self.processor.extract_features(clean)
 
-        if reported_fatigue.empty:
-            return float('inf')
+        # Compute the label as the *average* of all fatigue values inside the window
+        self.label = self._average_label(t0, t1)
 
-        # Filter fatigue scores within the window
-        fatigue_scores_in_window = reported_fatigue[
-            (reported_fatigue['time_ms'] >= self.window_start) & (reported_fatigue['time_ms'] <= self.window_end)
-        ]
+    def _slice_emg(self):
+        df = self.trial["emg_df"]
+        tcol = self.trial["time_col"]
+        ccol = self.trial["chosen_channel"]
+        m = (df[tcol] >= self.t0) & (df[tcol] < self.t1)
+        seg = df.loc[m, ccol].astype(float).values
+        return seg
 
-        if fatigue_scores_in_window.empty:
-            return float('inf')
+    def _average_label(self, t0, t1):
+        """Compute average fatigue label within this window (interpolated if needed)."""
+        labels = self.trial["label_df"].copy()
+        mask = (labels["time"] >= t0) & (labels["time"] < t1)
+        sub = labels.loc[mask, "label"].values
 
-        # Find the most frequent fatigue score in the window
-        fatigue_counts = Counter(fatigue_scores_in_window['response'])
-        most_relevant_fatigue = max(fatigue_counts, key=fatigue_counts.get)
-        return most_relevant_fatigue
+        if len(sub) == 0:
+            # If no label points directly in window, interpolate around t0/t1
+            label = np.interp((t0 + t1) / 2.0, labels["time"].values, labels["label"].values)
+        else:
+            label = np.mean(sub)
 
-    def assign_label(self, participant, window_start, window_end):
-        ratings = participant.reported_fatigue.sort_values('time_ms')
-        # Get all ratings before or within this window
-        prev_ratings = ratings[ratings['time_ms'] <= window_end]
-
-        if prev_ratings.empty:
-            print(f"⚠️ No fatigue scores yet at window start ({window_start}-{window_end}). Assigning default label.")
-            return 0
-
-        # Most recent (last) fatigue value before the window end
-        raw_rating = prev_ratings.iloc[-1]['response']
-
-        # Optionally normalize if needed
-        # min_rating = ratings['response'].min()
-        # max_rating = ratings['response'].max()
-        # normalized = 1 + (raw_rating - min_rating) * (6 / (max_rating - min_rating + 1e-8))
-        # return int(round(normalized))
-        return raw_rating
+        label = float(np.clip(label, 0.0, 2.0))
+        if self.normalize_label_to_7:
+            # Map 0..2 -> 1..7 linearly
+            label = 1 + label * 3.0
+        return label
