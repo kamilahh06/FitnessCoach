@@ -56,6 +56,9 @@ class FatiguePipeline:
 
         for p in create_participant_list():
             for tr in p.trials:
+                emg = pd.to_numeric(tr["emg_df"][ch], errors="coerce").fillna(0).to_numpy()
+                label = tr["label_df"]["label"].astype(float).to_numpy()
+                
                 if not tr["name"].lower().startswith("trial_5"):
                     continue
                 ch = tr["chosen_channel"]
@@ -93,7 +96,9 @@ class FatiguePipeline:
     def process_raw_emg(self):
         print("⚙️ Processing raw EMG windows for raw CNN/LSTM...")
         all_raw, all_labels = [], []
+        
         for p in create_participant_list():
+            print(f"→ Processing subject {p.subject_id}...")
             for tr in p.trials:
                 if not tr["name"].lower().startswith("trial_5"):
                     continue
@@ -102,15 +107,47 @@ class FatiguePipeline:
                     continue
 
                 emg = pd.to_numeric(tr["emg_df"][ch], errors="coerce").fillna(0).to_numpy()
-                label = tr["label_df"]["label"].astype(float).to_numpy()
+                label_df = tr["label_df"]
+                
+                print(f"{p.subject_id}:{tr['name']}")
+                print(f"  EMG length: {len(emg)}")
+                print(f"  Label length: {len(label_df)}")
 
-                # --- Clean NaNs before normalization ---
-                label = label[~np.isnan(label)]
+                # ✅ FIX: Interpolate labels to match EMG sampling rate
+                from scipy.interpolate import interp1d
+                
+                # Get label times and values
+                label_times = label_df["time"].astype(float).to_numpy()
+                label_values = label_df["label"].astype(float).to_numpy()
+                
+                # Get EMG times (assuming it starts at same time as labels)
+                emg_times = np.arange(len(emg)) / EMG_FS + label_times[0]
+                
+                # Interpolate labels to EMG timestamps
+                interp_func = interp1d(
+                    label_times, 
+                    label_values, 
+                    kind='linear',
+                    bounds_error=False,
+                    fill_value=(label_values[0], label_values[-1])  # extrapolate edges
+                )
+                label = interp_func(emg_times)
+                
+                print(f"  Upsampled label length: {len(label)}")
+                
+                # Now they should match
+                assert len(emg) == len(label), f"Length mismatch: EMG={len(emg)}, Label={len(label)}"
+
+                # --- Clean NaNs ---
+                valid_mask = ~np.isnan(label)
+                emg = emg[valid_mask]
+                label = label[valid_mask]
+
                 if len(label) == 0:
-                    print(f"⚠️ Skipping {p.subject_id}:{tr['name']} — empty or invalid labels")
+                    print(f"⚠️ Skipping {p.subject_id}:{tr['name']} — empty after cleaning")
                     continue
 
-                # --- Normalize safely ---
+                # --- Normalize ---
                 if label.max() > label.min():
                     label = (label - label.min()) / (label.max() - label.min())
                 else:
@@ -120,31 +157,39 @@ class FatiguePipeline:
 
                 win = int(self.window_s * EMG_FS)
                 step = int(self.step_s * EMG_FS)
-                for i in range(0, len(emg) - win, step):
+                
+                print(f"  Window: {win} samples, Step: {step} samples")
+                print(f"  Max possible windows: {(len(emg) - win) // step + 1}")
+                
+                windows_created = 0
+                for i in range(0, len(emg) - win + 1, step):
                     seg = emg[i:i + win]
-                    if len(seg) == 0 or np.all(seg == 0) or np.isnan(seg).all():
+                    label_seg = label[i:i + win]
+                    
+                    if len(seg) < win or np.all(seg == 0) or np.isnan(seg).all():
+                        continue
+                    if np.isnan(label_seg).all():
                         continue
                     if self.processor.is_artifact(seg):
                         continue
 
-                    # ✅ Skip if label slice extends past available labels
-                    if i + win > len(label):
-                        continue
-                    label_seg = label[i:i + win]
-                    if len(label_seg) == 0 or np.isnan(label_seg).all():
-                        continue
-
                     all_raw.append(seg)
                     all_labels.append(np.nanmean(label_seg))
+                    windows_created += 1
+                
+                print(f"  ✓ Created {windows_created} windows\n")
 
         X_raw = np.stack(all_raw)
         y_raw = np.array(all_labels)
         np.save(os.path.join(self.save_dir, "X_raw.npy"), X_raw)
         np.save(os.path.join(self.save_dir, "y_raw.npy"), y_raw)
-        print("NaN count in y:", np.isnan(y_raw).sum())
-        print("Unique y values:", np.unique(y_raw))
-        print("X contains NaN:", np.isnan(X_raw).any())
-        print(f"✅ Saved raw EMG arrays → {self.save_dir} | X={X_raw.shape}, y={y_raw.shape}")
+        print(f"\n{'='*50}")
+        print(f"NaN count in y: {np.isnan(y_raw).sum()}")
+        print(f"Unique y values: {len(np.unique(y_raw))} unique values")
+        print(f"X contains NaN: {np.isnan(X_raw).any()}")
+        print(f"✅ Saved raw EMG arrays → {self.save_dir}")
+        print(f"   X shape: {X_raw.shape}")
+        print(f"   y shape: {y_raw.shape}")
 
     # ------------------------------------------------------------
     # 2️⃣ Load already processed Trial 5 Biceps data
@@ -162,9 +207,9 @@ class FatiguePipeline:
     # ------------------------------------------------------------
     def train_models(self, prefix="", use_rf=False, use_cnn=False, use_rawcnn=False, use_lstm=False):
         """Trains selected models (RF, CNN, RawCNN, or LSTM)."""
-        X, y, g = self.load_trial5_biceps()
 
         if use_rf:
+            X, y, g = self.load_trial5_biceps()
             print("\n🌲 Training Random Forest + Gradient Boost stacking ensemble...")
             df = pd.DataFrame(X, columns=[
                 "mean","std","rms","mav","wl","zc","ssc",
@@ -174,6 +219,7 @@ class FatiguePipeline:
             train_stacking_model(df, y, g, self.save_dir)
 
         if use_cnn:
+            X, y, g = self.load_trial5_biceps()
             print("\n🧠 Training Feature-Based CNN regression model...")
             X_seq = np.expand_dims(X, axis=2)
             X_train, X_test, y_train, y_test = train_test_split(X_seq, y, test_size=0.2, random_state=42)
@@ -198,8 +244,14 @@ class FatiguePipeline:
             test_ds = EMGSequenceDataset(X_test, y_test)
 
             rawcnn = RawCNNRegressor(input_channels=1)
-            trainer = RegressorTrainer(rawcnn, train_ds, test_ds, lr=1e-3, batch_size=16)
-            trainer.train(epochs=250)
+            from torch.utils.data import Subset
+            subset_idx = np.random.choice(len(train_ds), size=300, replace=False)  # try 300 windows
+            train_small = Subset(train_ds, subset_idx)
+
+            trainer = RegressorTrainer(rawcnn, train_small, test_ds, lr=1e-3, batch_size=16)
+            trainer.train(epochs=100)
+            # trainer = RegressorTrainer(rawcnn, train_ds, test_ds, lr=1e-3, batch_size=16)
+            # trainer.train(epochs=5)
             trainer.evaluate()
             torch.save(rawcnn.state_dict(), os.path.join(self.save_dir, f"cnn_raw_signal_{prefix}.pt"))
 
