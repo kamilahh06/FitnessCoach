@@ -8,12 +8,12 @@ def main():
     participant_id = -1 # Participant id for logging results    
     window_size = 2000  # Miliseconds for EMG window
         
-    model_file_path = "Fatigue_Model/Models/best_model.pth"
+    model_file_path = "/u/kamilah/FitnessCoach/Models/best_model_4.pt"
     model = ModelHandler(model_file_path)  # Load your trained model here
     processor = PreProcessor()
     coach = Coach(participant_id)
     
-    reader = EMGReader()
+    reader = EMGReader(port="/dev/cu.SLAB_USBtoUART", participant_id=1)
     reader.create_file(participant_id)
     
     print("🎯 Fitness Coach started. Reading live EMG...")
