@@ -2,6 +2,7 @@ from .TrainingPipeline import FatiguePipeline
 
 import numpy as np, pandas as pd, torch
 from sklearn.metrics import mean_squared_error, r2_score
+import os 
 
 # save_dir = "/u/kamilah/FitnessCoach/Signal_Plotting/viz_biceps_7"  # or latest run
 
@@ -91,12 +92,13 @@ from sklearn.metrics import mean_squared_error, r2_score
 # print("\nCNN Results (from trainer logs if available)")
 # # Paste printed train/test logs here manually if needed
 
+
 pipeline = FatiguePipeline("/u/kamilah/FitnessCoach/Fatigue_Model/Model_Training/Windows", window_s=8.0, step_s=0.5) #3, 1
 # pipeline.process_trial5_biceps()   # re-extract features with new window size
-# pipeline.process_raw_emg() # re-extract raw emg data with new window size
+pipeline.process_raw_emg() # re-extract raw emg data with new window size
 
 print("Starting.")
-# pipeline.train_models(use_rf=True)            # Feature-based RFR
-# pipeline.train_models(use_cnn=True)            # Feature-based CNN
-pipeline.train_models(use_rawcnn=True, prefix="FIXED_DATA_SUBSET_2")           # Raw EMG CNN
+# pipeline.train_models(use_rf=True,  prefix="FIXED_DATA_SUBSET_10")            # Feature-based RFR
+# pipeline.train_models(use_cnn=True,  prefix="FIXED_DATA_SUBSET_10")            # Feature-based CNN
+# pipeline.train_models(use_rawcnn=True, prefix="FIXED_DATA_SUBSET_8")           # Raw EMG CNN
 # pipeline.train_models(use_lstm=True)             # Raw EMG LSTM
