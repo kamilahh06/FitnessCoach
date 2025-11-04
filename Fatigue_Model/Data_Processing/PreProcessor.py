@@ -1,14 +1,48 @@
+# import numpy as np, pandas as pd
+# from scipy.signal import butter, lfilter, iirnotch, savgol_filter, welch
+# import pywt
+
+# class PreProcessor:
+#     """
+#     Preprocessing pipeline aligned with:
+#     Cerqueira et al., *Sensors 2024, 24(24), 8081*
+#     "A Comprehensive Dataset of Surface Electromyography and Self-Perceived Fatigue Levels"
+#     """
+
+#     def __init__(self, fs=1259, lowcut=20, highcut=450, order=4, notch_freq=60.0):
+#         self.fs = fs
+#         self.lowcut = lowcut
+#         self.highcut = highcut
+#         self.order = order
+#         self.notch_freq = notch_freq
+
+#     # ======================================================
+#     # 🧹 Full Processing Pipeline
+#     # ======================================================
+#     def full_process(self, x, normalize_mode="zscore"):
+#         """
+#         Applies filtering, baseline correction, denoising, smoothing, and normalization.
+#         """
+#         x = np.asarray(x, dtype=float)
+#         if x.size == 0:
+#             return x
+
+#         x = self.clean_data(x)
+#         if self.is_artifact(x):
+#             return np.zeros_like(x)
+
+#         x = self.notch_filter(x)
+#         x = self.bandpass_filtering(x)
+#         x = self.wavelet_denoise(x)
+#         x = self.savgol_smooth(x)
+#         x = self.normalize(x, mode=normalize_mode)
+#         return x
+
 import numpy as np, pandas as pd
 from scipy.signal import butter, lfilter, iirnotch, savgol_filter, welch
 import pywt
 
 class PreProcessor:
-    """
-    Preprocessing pipeline aligned with:
-    Cerqueira et al., *Sensors 2024, 24(24), 8081*
-    "A Comprehensive Dataset of Surface Electromyography and Self-Perceived Fatigue Levels"
-    """
-
     def __init__(self, fs=1259, lowcut=20, highcut=450, order=4, notch_freq=60.0):
         self.fs = fs
         self.lowcut = lowcut
@@ -16,27 +50,23 @@ class PreProcessor:
         self.order = order
         self.notch_freq = notch_freq
 
-    # ======================================================
-    # 🧹 Full Processing Pipeline
-    # ======================================================
     def full_process(self, x, normalize_mode="zscore"):
-        """
-        Applies filtering, baseline correction, denoising, smoothing, and normalization.
-        """
         x = np.asarray(x, dtype=float)
-        if x.size == 0:
-            return x
-
+        if x.size == 0: return x
         x = self.clean_data(x)
-        if self.is_artifact(x):
-            return np.zeros_like(x)
-
+        if self.is_artifact(x): return np.zeros_like(x)
         x = self.notch_filter(x)
         x = self.bandpass_filtering(x)
         x = self.wavelet_denoise(x)
         x = self.savgol_smooth(x)
         x = self.normalize(x, mode=normalize_mode)
         return x
+
+    # ---- quick RMS helper for activity gating ----
+    @staticmethod
+    def window_rms(x):
+        x = np.asarray(x, dtype=float)
+        return float(np.sqrt(np.mean(x * x)))
 
     # ======================================================
     # 🔧 Cleaning & Filtering
