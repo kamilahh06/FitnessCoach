@@ -5,16 +5,19 @@ from queue import Queue, Empty
 
 import readchar
 import pyttsx3
+from groq import Groq   # ← REQUIRED IMPORT
 
 # -------- CONFIG --------
 REPS_PER_SET = 10
 REST_SECONDS = 10
-MOTIVATION_INTERVAL = 15   # seconds between AI messages
-ENABLE_TTS = True          # set False if you want silent mode
-ENABLE_AI = True           # set False to disable AI motivation
+MOTIVATION_INTERVAL = 15
+ENABLE_TTS = True
+ENABLE_AI = True
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")   # ← DEFINE HERE
 GROQ_MODEL = "llama-3.1-8b-instant"
+
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 # --------- TTS WORKER (NON-BLOCKING) ---------
 class TTSWorker(threading.Thread):
@@ -69,7 +72,7 @@ class AIMotivation(threading.Thread):
 
         # Lazy import so it’s optional
         self.client = None
-        if ENABLE_AI and GROQ_API_KEY:
+        if ENABLE_AI and groq_client:
             try:
                 from groq import Groq
                 self.client = Groq(api_key=GROQ_API_KEY)
