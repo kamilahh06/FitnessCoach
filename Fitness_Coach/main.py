@@ -43,6 +43,81 @@
 # if __name__ == "__main__":
 #     main()
 
+# from .EMGReader import EMGReader
+# from .Coach import Coach, CoachState
+# from .FatigueModel import ModelHandler
+# from Fatigue_Model.Data_Processing.PreProcessor import PreProcessor
+# import numpy as np
+# import os
+# import time
+
+# def main():
+#     print("Running Fitness Coach main()")
+
+#     participant_id = -2
+#     window_size = 1600  # in samples, not seconds, og 1600
+#     model_file_path = "Models/best_model_4.pt"
+
+#     model = ModelHandler(model_file_path)
+#     processor = PreProcessor()
+#     coach = Coach(participant_id)
+#     reader = EMGReader(ip="172.20.10.2", port=8080, participant_id=participant_id)
+#     reader.create_file(participant_id)
+
+#     print("🎯 Fitness Coach started. Reading live EMG...")
+
+#     while True:
+#         try:
+#             # 💤 If the coach is resting, pause *before* new readings
+#             print(f"Coach State: {coach.state}")
+#             if coach.state == CoachState.RESTING:
+#                 rest_time = coach.rest_duration
+#                 print(f"⏸️  Pausing EMG reading for {rest_time} seconds...")
+#                 coach._speak(f"Rest for {rest_time} seconds.")
+#                 time.sleep(rest_time)
+
+#                 # Reset fatigue slightly so next set starts fresh
+#                 coach.prev_fatigue_score = max(0.0, coach.prev_fatigue_score * 0.3)
+#                 coach.state = CoachState.ACTIVE
+#                 coach._speak("Rest complete. Resume your next set.")
+#                 print("▶️  Resuming EMG reading...")
+#                 continue  # skip to next iteration (don’t read EMG during rest)
+
+#             # ---- Read a window from ESP32 ----
+#             window, start_time = reader.read_window(window_size)
+            
+#             # Convert ADC → volts first
+#             window = (np.asarray(window, dtype=float) / 4095.0) * 3.3
+
+#             # 1) compute raw RMS in volts for activity detection
+#             activity_rms = PreProcessor.window_rms(window)
+
+#             # 2) then do your training-aligned preprocessing
+#             features = processor.full_process(window, normalize_mode="zscore")
+#             if features is None or np.isnan(features).any():
+#                 continue
+
+#             prediction = float(model.predict(features))
+#             prediction = np.clip(prediction, 0.0, 1.0)
+
+#             # pass activity_rms to make the coach decay during rest
+#             coach.give_command(prediction, activity_rms=activity_rms)
+#             # coach.give_command(prediction)
+
+#         except (ConnectionResetError, OSError):
+#             print("⚠️ Connection lost — attempting to reconnect...")
+#             reader.reconnect()
+#             time.sleep(1)
+#         except KeyboardInterrupt:
+#             print("\n🛑 Session ended by user.")
+#             break
+#         except Exception as e:
+#             print(f"Unexpected error: {e}")
+#             time.sleep(1)
+
+# if __name__ == "__main__":
+#     main()
+
 from .EMGReader import EMGReader
 from .Coach import Coach, CoachState
 from .FatigueModel import ModelHandler
@@ -54,65 +129,107 @@ import time
 def main():
     print("Running Fitness Coach main()")
 
-    participant_id = -2
-    window_size = 1600  # in samples, not seconds, og 1600
+    participant_id = 2
+    window_size = 1600  # samples (same as before)
     model_file_path = "Models/best_model_4.pt"
 
     model = ModelHandler(model_file_path)
     processor = PreProcessor()
-    coach = Coach(participant_id)
+    coach = Coach(participant_id, require_calibration=True)
     reader = EMGReader(ip="172.20.10.2", port=8080, participant_id=participant_id)
     reader.create_file(participant_id)
 
-    print("🎯 Fitness Coach started. Reading live EMG...")
+    print("🎯 Fitness Coach started.")
+    print("📊 CALIBRATION: Stay relaxed for 3 windows (~24 seconds)...")
+    print("   This establishes your personal baseline.\n")
 
     while True:
         try:
-            # 💤 If the coach is resting, pause *before* new readings
-            print(f"Coach State: {coach.state}")
+            # Handle resting state
             if coach.state == CoachState.RESTING:
-                rest_time = coach.rest_duration
-                print(f"⏸️  Pausing EMG reading for {rest_time} seconds...")
-                coach._speak(f"Rest for {rest_time} seconds.")
-                time.sleep(rest_time)
+                if not hasattr(coach, 'rest_start'):
+                    # Should not happen as rest_start is set in Coach class
+                    coach.rest_start = time.time()
+                
+                elapsed = time.time() - coach.rest_start
+                remaining = max(0, coach.rest_duration - elapsed)
+                
+                # Only process window for activity detection during rest
+                window, start_time = reader.read_window(window_size)
+                
+                # Log every EMG value to file
+                timestamp_ms = int(start_time * 1000)
+                with open(reader.filename, "a") as f:
+                    for i, val in enumerate(window):
+                        f.write(f"{timestamp_ms + i},{val}\n")
+                
+                window_volts = (np.asarray(window, dtype=float) / 4095.0) * 3.3
+                activity_rms = PreProcessor.window_rms(window_volts)
+                
+                # Give command will handle rest state and transitions
+                coach.give_command(0.0, activity_rms=activity_rms)
+                
+                # Announce remaining time at regular intervals
+                if int(remaining) > 0 and int(remaining) % 30 == 0:
+                    print(f"⏸️  {int(remaining)} seconds of rest remaining...")
+                
+                continue  # Skip main processing loop during rest
 
-                # Reset fatigue slightly so next set starts fresh
-                coach.prev_fatigue_score = max(0.0, coach.prev_fatigue_score * 0.3)
-                coach.state = CoachState.ACTIVE
-                coach._speak("Rest complete. Resume your next set.")
-                print("▶️  Resuming EMG reading...")
-                continue  # skip to next iteration (don’t read EMG during rest)
-
-            # ---- Read a window from ESP32 ----
+            # Read EMG window
             window, start_time = reader.read_window(window_size)
-
-            # Convert ADC → volts first
-            window = (np.asarray(window, dtype=float) / 4095.0) * 3.3
-
-            # 1) compute raw RMS in volts for activity detection
-            activity_rms = PreProcessor.window_rms(window)
-
-            # 2) then do your training-aligned preprocessing
-            features = processor.full_process(window, normalize_mode="zscore")
+            
+            # Log every EMG value to file
+            timestamp_ms = int(start_time * 1000)
+            with open(reader.filename, "a") as f:
+                for i, val in enumerate(window):
+                    # Log with slightly offset timestamps for each value in the window
+                    f.write(f"{timestamp_ms + i},{val}\n")
+            
+            # Convert ADC to volts (3.3V reference, 12-bit ADC)
+            window_volts = (np.asarray(window, dtype=float) / 4095.0) * 3.3
+            
+            # Compute RMS in volts for activity detection
+            activity_rms = PreProcessor.window_rms(window_volts)
+            
+            # During calibration, just collect baseline
+            if coach.state == CoachState.CALIBRATING:
+                # Log every EMG value to file
+                timestamp_ms = int(time.time() * 1000)
+                with open(reader.filename, "a") as f:
+                    for i, val in enumerate(window):
+                        f.write(f"{timestamp_ms + i},{val}\n")
+                
+                coach.give_command(0.0, activity_rms=activity_rms)
+                continue
+            
+            # Process features for fatigue model (use your existing preprocessing)
+            features = processor.full_process(window_volts, normalize_mode="zscore")
             if features is None or np.isnan(features).any():
+                print("⚠️ Invalid features, skipping window")
                 continue
 
+            # Get fatigue prediction from your model
             prediction = float(model.predict(features))
             prediction = np.clip(prediction, 0.0, 1.0)
 
-            # pass activity_rms to make the coach decay during rest
+            # Give coaching command with activity-aware logic
             coach.give_command(prediction, activity_rms=activity_rms)
-            # coach.give_command(prediction)
 
-        except (ConnectionResetError, OSError):
-            print("⚠️ Connection lost — attempting to reconnect...")
+        except (ConnectionResetError, OSError) as e:
+            print(f"⚠️ Connection lost: {e}")
+            print("   Attempting to reconnect...")
             reader.reconnect()
-            time.sleep(1)
+            time.sleep(2)
+            
         except KeyboardInterrupt:
             print("\n🛑 Session ended by user.")
+            print(f"   Log saved to: {coach.logging_file_path}")
             break
+            
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            print(f"❌ Unexpected error: {e}")
+            import traceback
+            traceback.print_exc()
             time.sleep(1)
 
 if __name__ == "__main__":

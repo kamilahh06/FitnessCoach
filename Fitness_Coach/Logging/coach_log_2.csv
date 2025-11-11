@@ -1,0 +1,2 @@
+timestamp_ms,fatigue_level,continuous_score,state,rule,llm,rms_raw,rms_normalized
+1762813836089,1,0.105,ACTIVE,You're fresh — maintain your steady pace.,You're fresh — maintain your steady pace.,0.0004,1.0000
