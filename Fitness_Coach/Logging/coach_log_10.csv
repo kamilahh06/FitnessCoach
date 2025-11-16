@@ -1,0 +1,35 @@
+timestamp_ms,fatigue_level,continuous_score,state,rule,llm,rms_raw,rms_normalized
+1763170309036,1,0.086,ACTIVE,You're fresh — maintain your steady pace.,You're fresh — maintain your steady pace.,1.1120,1.0000
+1763170330854,2,0.141,ACTIVE,You're fresh — maintain your steady pace.,You're fresh — maintain your steady pace.,1.2601,1.0000
+1763170353969,4,0.421,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.4294,1.0000
+1763170378134,5,0.597,RESTING,Moderate fatigue detected. Stop and rest for 26 seconds.,Moderate fatigue detected. Stop and rest for 26 seconds.,1.4942,1.0000
+1763170418661,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.0148,0.3054
+1763170443211,3,0.326,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.4064,0.9588
+1763170467195,5,0.541,RESTING,Moderate fatigue detected. Stop and rest for 22 seconds.,Moderate fatigue detected. Stop and rest for 22 seconds.,1.4763,0.9916
+1763170489863,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.4117,0.4918
+1763170514530,3,0.328,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.5155,1.0000
+1763170538631,5,0.536,RESTING,Moderate fatigue detected. Stop and rest for 21 seconds.,Moderate fatigue detected. Stop and rest for 21 seconds.,1.7853,1.0000
+1763170563504,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.4293,0.4673
+1763170593616,3,0.321,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.6563,0.9493
+1763170620769,5,0.537,RESTING,Moderate fatigue detected. Stop and rest for 21 seconds.,Moderate fatigue detected. Stop and rest for 21 seconds.,1.9216,1.0000
+1763170647843,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.4790,0.4736
+1763170677573,3,0.335,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.7136,0.9241
+1763170704159,5,0.542,RESTING,Moderate fatigue detected. Stop and rest for 22 seconds.,Moderate fatigue detected. Stop and rest for 22 seconds.,2.0324,1.0000
+1763170731300,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.4448,0.4523
+1763170759628,3,0.325,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.8622,0.9413
+1763170786928,5,0.543,RESTING,Moderate fatigue detected. Stop and rest for 22 seconds.,Moderate fatigue detected. Stop and rest for 22 seconds.,2.2459,1.0000
+1763170813692,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.5317,0.4649
+1763170841387,3,0.335,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.8690,0.8824
+1763170869625,5,0.541,RESTING,Moderate fatigue detected. Stop and rest for 22 seconds.,Moderate fatigue detected. Stop and rest for 22 seconds.,2.2413,0.9986
+1763170898805,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.4133,0.4280
+1763170927538,3,0.326,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,1.8139,0.8652
+1763170955281,5,0.537,RESTING,Moderate fatigue detected. Stop and rest for 21 seconds.,Moderate fatigue detected. Stop and rest for 21 seconds.,2.2234,0.9930
+1763170982815,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.5203,0.4614
+1763171008754,3,0.335,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,2.0849,0.9498
+1763171039224,5,0.545,RESTING,Moderate fatigue detected. Stop and rest for 22 seconds.,Moderate fatigue detected. Stop and rest for 22 seconds.,2.4516,1.0000
+1763171064747,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.2801,0.3791
+1763171092173,3,0.342,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,2.1929,0.9260
+1763171120747,5,0.553,RESTING,Moderate fatigue detected. Stop and rest for 23 seconds.,Moderate fatigue detected. Stop and rest for 23 seconds.,2.3885,0.9820
+1763171153039,1,0.000,ACTIVE,Rest complete. Resume your next set when ready.,Rest complete. Resume your next set when ready.,0.5600,0.4591
+1763171180012,3,0.316,ACTIVE,Fatigue building — stay focused on form. Prepare to stop soon.,Fatigue building — stay focused on form. Prepare to stop soon.,2.0827,0.8945
+1763171206072,5,0.536,RESTING,Moderate fatigue detected. Stop and rest for 21 seconds.,Moderate fatigue detected. Stop and rest for 21 seconds.,2.2836,0.9520

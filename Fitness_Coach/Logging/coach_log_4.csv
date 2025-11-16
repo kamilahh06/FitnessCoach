@@ -1,0 +1,5 @@
+timestamp_ms,fatigue_level,continuous_score,state,rule,llm,rms_raw,rms_normalized
+1762986490300,1,0.090,ACTIVE,You're fresh — maintain your steady pace.,Let's keep that energy up and cruise through these bicep curls at a consistent pace. You're feeling strong and fresh, so just maintain your rhythm!,2.3509,1.0000
+1762986534020,2,0.139,ACTIVE,You're fresh — maintain your steady pace.,You're looking strong and feeling fresh, so let's keep that steady rhythm going and crush these bicep curls.,1.8229,0.8427
+1762986572090,1,0.060,ACTIVE,You're fresh — maintain your steady pace.,You're moving smoothly, keep that consistent rhythm going.,0.0017,0.2794
+1762986615342,1,0.037,ACTIVE,You're fresh — maintain your steady pace.,You're just getting warmed up, keep that energy flowing with a consistent pace.,0.0017,0.2856

@@ -129,8 +129,8 @@ import time
 def main():
     print("Running Fitness Coach main()")
 
-    participant_id = 2
-    window_size = 1600  # samples (same as before)
+    participant_id = 3
+    window_size = 1600  # originally 1600 samples (same as before)
     model_file_path = "Models/best_model_4.pt"
 
     model = ModelHandler(model_file_path)
@@ -140,7 +140,7 @@ def main():
     reader.create_file(participant_id)
 
     print("🎯 Fitness Coach started.")
-    print("📊 CALIBRATION: Stay relaxed for 3 windows (~24 seconds)...")
+    print("📊 CALIBRATION: Stay relaxed for 1 window (~24 seconds)...")
     print("   This establishes your personal baseline.\n")
 
     while True:
@@ -218,7 +218,7 @@ def main():
         except (ConnectionResetError, OSError) as e:
             print(f"⚠️ Connection lost: {e}")
             print("   Attempting to reconnect...")
-            reader.reconnect()
+            lyreader.reconnect()
             time.sleep(2)
             
         except KeyboardInterrupt:
